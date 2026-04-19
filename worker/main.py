@@ -83,23 +83,24 @@ class CoordinatorClient:
                     local_step=step,
                 ).model_dump(),
                 headers={"Content-Type": "application/json"},
-                timeout=10,
+                timeout=65,
             )
             return r.json()
         except Exception as e:
             logger.warning("Heartbeat failed: %s", e)
             return {"ok": False, "should_stop": False}
 
-    def get_assignment(self, job_id: int, worker_id: str) -> Optional[dict]:
+    def get_assignment(self, worker_id: str) -> Optional[dict]:
         try:
             r = self.session.get(
-                f"{self.base_url}/jobs/{job_id}/assign",
+                f"{self.base_url}/workers/next_job",
                 params={"worker_id": worker_id},
-                timeout=15,
+                timeout=65,
             )
             if r.status_code == 200:
                 return r.json()
-            logger.warning("Assignment failed (%d): %s", r.status_code, r.text)
+            if r.status_code not in (503, 404):
+                logger.warning("Assignment failed (%d): %s", r.status_code, r.text)
         except Exception as e:
             logger.error("Error getting assignment: %s", e)
         return None
@@ -241,10 +242,13 @@ def _main_loop(client: CoordinatorClient, hb: HeartbeatThread, worker_id: str, h
         wait_until_idle(poll_interval=IDLE_POLL_INTERVAL)
         logger.info("Machine is idle — requesting job assignment")
 
-        assignment = client.get_assignment(JOB_ID, worker_id)
+        assignment = client.get_assignment(worker_id)
         if assignment is None:
             logger.info("No assignment available. Retrying in 60s...")
-            time.sleep(60)
+            for _ in range(12):   # 12 × 5s = 60s, but bail early if no longer idle
+                time.sleep(5)
+                if not is_idle():
+                    break
             continue
 
         job_id = assignment["job_id"]
@@ -269,9 +273,8 @@ def _main_loop(client: CoordinatorClient, hb: HeartbeatThread, worker_id: str, h
         # Download dataset shard
         dataset_path = None
         try:
-            r = requests.get(
+            r = client.session.get(
                 f"{COORDINATOR_URL}/jobs/{job_id}/dataset",
-                headers={"Authorization": f"Bearer {client.session.headers['Authorization'].split(' ')[1]}"},
                 timeout=120,
                 stream=True,
             )

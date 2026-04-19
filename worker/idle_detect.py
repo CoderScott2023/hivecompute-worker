@@ -118,9 +118,10 @@ def wait_until_idle(poll_interval: float = 5.0) -> None:
     while not is_idle():
         user_idle = get_user_idle_seconds()
         gpu_util = get_gpu_utilization_pct()
+        gpu_str = f"{gpu_util:.0f}%" if gpu_util is not None else "n/a"
         print(
             f"[idle] Waiting... user_idle={user_idle:.0f}s "
             f"(need {USER_IDLE_THRESHOLD}s)  "
-            f"gpu_util={gpu_util}%"
+            f"gpu_util={gpu_str}"
         )
         time.sleep(poll_interval)
