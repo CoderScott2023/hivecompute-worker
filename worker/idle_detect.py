@@ -14,8 +14,13 @@ from typing import Optional
 
 SYSTEM = platform.system()   # "Windows" | "Darwin" | "Linux"
 
-# Training starts after this many seconds of combined user + GPU idle
-USER_IDLE_THRESHOLD = int(__import__("os").environ.get("IDLE_THRESHOLD_SECS", "120"))
+# Training starts after this many seconds of combined user + GPU idle.
+# Lowered from 120 → 30 so the system is more responsive on machines that
+# briefly fire input events from background apps (mouse drift, Discord, etc).
+# Bailing mid-training is cheap now: the coordinator instantly releases the
+# shard when the worker's next heartbeat reports IDLE status, so any other
+# worker can pick it up.
+USER_IDLE_THRESHOLD = int(__import__("os").environ.get("IDLE_THRESHOLD_SECS", "30"))
 GPU_UTIL_MAX = int(__import__("os").environ.get("GPU_UTIL_MAX_PCT", "10"))
 
 

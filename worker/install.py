@@ -58,7 +58,7 @@ env = os.environ.copy()
 env["COORDINATOR_URL"] = cfg["coordinator_url"]
 env["WORKER_ID_OVERRIDE"] = cfg["worker_id"]
 env["WORKER_TOKEN_OVERRIDE"] = cfg["token"]
-env["IDLE_THRESHOLD_SECS"] = "120"
+env["IDLE_THRESHOLD_SECS"] = "30"
 env["JOB_ID"] = cfg.get("job_id", "1")
 
 subprocess.run(
@@ -236,7 +236,11 @@ def main():
     print(f"  Track your earnings: {COORDINATOR_URL}")
     print("=" * 60)
     print()
-    input("Press Enter to close...")
+    # Per ideal product description: installer "runs for about two minutes installing
+    # packages, then closes. That's it. He never touches it again." So we close
+    # automatically after a brief pause so the user can glimpse the success banner.
+    import time as _t
+    _t.sleep(3)
 
 
 if __name__ == "__main__":
